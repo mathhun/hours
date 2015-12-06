@@ -10,7 +10,21 @@ class EmailCollection(val emails: Iterable[Email] = Nil) extends Iterable[Email]
   }
 }
 
-class Email(val year: Int, val month: Int, val subject: String, val body: String) {
+class Email(val headers: Map[String, String], val body: Seq[String]) {
+  val subject = headers("subject")
+
+  def year: Int = ???
+  def month: Int = ???
+}
+object Email {
+  def extractYearMonth(s: String): Option[(Int, Int)] = {
+    """\d{4}-\d{2}-\{2}""".r.findFirstIn(s) match {
+      case _ => None
+    }
+  }
+
+  def apply(headers: Map[String, String], body: Seq[String]) =
+    new Email(headers, body)
 }
 
 class Summary {
@@ -23,8 +37,31 @@ object Parser {
     new EmailCollection()
   }
 
+  def split(s: String): Seq[String] =
+    """(?m)^\.$""".r.split(s).map(_.trim)
+
+  def parseHeaders(content: String): Map[String, String] = {
+    import java.io._
+    import java.util.Properties
+    import javax.mail._
+    import javax.mail.internet._
+
+    val s: Session = Session.getDefaultInstance(new Properties())
+    val is: InputStream = new ByteArrayInputStream(content.getBytes())
+    val message: MimeMessage = new MimeMessage(s, is)
+    val e = message.getAllHeaders()
+    val m = collection.mutable.Map.empty[String, String]
+    while (e.hasMoreElements()) {
+      val h: Header = e.nextElement().asInstanceOf[Header]
+      m += (h.getName.toLowerCase -> MimeUtility.decodeText(h.getValue))
+    }
+
+    m.toMap
+  }
+
   def parseEmail(s: String): Email = {
-    ???
+    val (headers, body) = """\n""".r.split(s).span(line => line != "")
+    Email(parseHeaders(headers.mkString("\n")), body.tail)
   }
 }
 
