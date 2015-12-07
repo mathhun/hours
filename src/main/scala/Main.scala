@@ -12,19 +12,22 @@ class EmailCollection(val emails: Iterable[Email] = Nil) extends Iterable[Email]
 
 class Email(val headers: Map[String, String], val body: Seq[String]) {
   val subject = headers("subject")
+  val ymd = Email.extractYearMonth(subject)
 
-  def year: Int = ???
-  def month: Int = ???
+  def year: Option[Int] = ymd.get('y)
+  def month: Option[Int] = ymd.get('m)
+  def day: Option[Int] = ymd.get('d)
 }
+
 object Email {
-  def extractYearMonth(s: String): Option[(Int, Int)] = {
-    """\d{4}-\d{2}-\{2}""".r.findFirstIn(s) match {
-      case _ => None
+  def extractYearMonth(s: String): Map[Symbol, Int] = {
+    val regex = """.*(\d\d\d\d)-(\d\d)-(\d\d).*""".r
+    s match {
+      case regex(y, m, d) => Map('y -> y.toInt, 'm -> m.toInt, 'd -> d.toInt)
+      case _ => Map.empty
     }
   }
-
-  def apply(headers: Map[String, String], body: Seq[String]) =
-    new Email(headers, body)
+  def apply(headers: Map[String, String], body: Seq[String]) = new Email(headers, body)
 }
 
 class Summary {

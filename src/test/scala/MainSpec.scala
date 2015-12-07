@@ -30,3 +30,14 @@ email body 01
     h("subject") should be ("デコードしてね")
   }
 }
+
+class EmailSpec extends FunSpec with Matchers {
+  describe("new Email, normal") {
+    it("should return year, month and day") {
+      val email = Email(Map("subject" -> "subject 2015-12-07 report"), Seq("body"))
+      email.year should be (Some(2015))
+      email.month should be (Some(12))
+      email.day should be (Some(7))
+    }
+  }
+}
