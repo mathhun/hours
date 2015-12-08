@@ -36,10 +36,6 @@ class Summary {
 }
 
 object Parser {
-  def parse(file: String): EmailCollection = {
-    new EmailCollection()
-  }
-
   def split(s: String): Seq[String] =
     """(?m)^\.$""".r.split(s).map(_.trim)
 
@@ -63,8 +59,18 @@ object Parser {
   }
 
   def parseEmail(s: String): Email = {
-    val (headers, body) = """\n""".r.split(s).span(line => line != "")
+    val (headers, body) = """\r\n""".r.split(s).span(line => line != "")
     Email(parseHeaders(headers.mkString("\n")), body.tail)
+  }
+
+  def parse(file: String): EmailCollection = {
+    import java.io._
+    import org.apache.commons.io.FileUtils
+
+    val content = FileUtils.readFileToString(new File(file), "ISO-2022-JP")
+    val emails = split(content).init.map(parseEmail)
+    println(emails)
+    new EmailCollection
   }
 }
 

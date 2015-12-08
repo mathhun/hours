@@ -16,12 +16,13 @@ Subject: =?ISO-2022-JP?B?GyRCJUclMyE8JUkkNyRGJE0bKEI=?=
 X-Mailer: Becky! ver. 2.69 [ja]
 
 email body 00
+
 email body 01
 """
   describe("Parser.parseEmail") {
     it("should parse a string and return an email object") {
       val email = Parser.parseEmail(emailString)
-      email.body should be (Seq("email body 00", "email body 01"))
+      email.body should be (Seq("email body 00", "", "email body 01"))
     }
   }
 
