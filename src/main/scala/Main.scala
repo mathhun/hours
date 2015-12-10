@@ -1,40 +1,78 @@
-case class Summary(val emails: Seq[Email]) {
-  var tasks: Seq[Task] = Nil
-
-  def summarize: Summary = {
-    this.tasks = this.emails.flatMap(e => Summary.extractTasks(e.body))
-    this
-  }
-
+case class Summary(tasks: Seq[Task]) {
   def report: Unit = {
-    //println(this.tasks)
+    println("\n// collected tasks")
+    tasks.foreach { task => println(task) }
+
+    println("\n// tickets")
+    val ticketsSummary = tasks
+      .collect { case x@(_: TicketTask) => x }
+      .groupBy(_.ticketId)
+      .map { case (ticketId, tasks) =>
+        TicketTask(tasks.head.name, tasks.map(_.hours).sum, tasks.head.ticketId) }
+      .toList.sortBy(_.ticketId)
+      .foreach { task => println(task) }
+    
+    println("\n// misc")
+    val miscSummary = tasks
+      .collect { case x@(_: MiscTask) => x }
+      .groupBy(_.name)
+      .map { case (name, tasks) =>
+        MiscTask(name, tasks.map(_.hours).sum) }
+      .toList.sortBy(_.name)
+      .foreach { task => println(task) }
+
+    println("\n// uncategorized")
+    val unknown = tasks
+      .collect { case x@(_: UnknownTask) => x }
+      .foreach { task => println(task) }
   }
 }
 
-object Summary {
-  def extractTasks(body: Seq[String]): Seq[Task] = {
-    val chunk = body
+sealed abstract class Task(name: String) {
+  override def equals(that: Any): Boolean
+}
+
+case class TicketTask(name: String, hours: Double, ticketId: Int) extends Task(name) {
+  override def equals(that: Any): Boolean = this match {
+    case t: TicketTask => this.ticketId == t.ticketId
+    case _ => false
+  }
+  override def toString: String = "#%s,\t%s,\t%.1f".format(ticketId, name, hours)
+}
+
+case class MiscTask(name: String, hours: Double) extends Task(name) {
+  override def equals(that: Any): Boolean = this match {
+    case t: MiscTask => this.name == t.name
+    case _ => false
+  }
+  override def toString: String = "%s,\t%.1f".format(name, hours)
+}
+
+case class UnknownTask(name: String) extends Task(name) {
+  override def equals(that: Any): Boolean = false
+  override def toString: String = "??? %s".format(name)
+}
+
+object Task {
+  val ticket = """#([0-9]+)\s*(.*)\s*\(([.0-9]+)h\).*""".r
+  val misc   = """・?\s*(.*)\s*\(([.0-9]+)h\).*""".r
+
+  def extract(emails: Seq[Email]): Summary = {
+    Summary(emails.flatMap(e => this.extractFromBody(e.body)))
+  }
+
+  def extractFromBody(body: Seq[String]): Seq[Task] = {
+    body
       .dropWhile(!_.matches(""".*\[チケット作業\].*"""))
       .takeWhile(!_.matches("---+"))
-
-    val (tasks, rest) = chunk
       .filter(ln => !ln.matches(""".*\[チケット外?作業\].*"""))
-      .partition(ln => ln.matches("""(#[0-9]+)? *(.*) *\([.0-9]+h\).*"""))
-
-    println("**********chunk***********")
-    println(chunk.mkString(","))
-
-    println("**********tasks***********")
-    println(tasks.mkString(","))
-
-    println("**********rest***********")
-    println(rest.mkString(","))
-
-    Seq(Task("", 0))
+      .map(ln => ln match {
+        case ticket(ticketId, name, hours) => Some(TicketTask(name.trim, hours.toDouble, ticketId.toInt))
+        case misc(name, hours) => Some(MiscTask(name.trim, hours.toDouble))
+        case l if l.length > 0 => Some(UnknownTask(ln.trim)) 
+        case _ => None
+      }).flatten
   }
-}
-
-case class Task(name: String, hours: Double, ticketId: Int = 0) {
 }
 
 case class Email(headers: Map[String, String], body: Seq[String]) {
@@ -106,6 +144,10 @@ object Main {
     val month = args(1).toInt
 
     val emails = Parser.parse(file).filter(e => e.year == 2015 && e.month == month)
-    Summary(emails).summarize.report
+
+    println("// processing"); 
+    emails.foreach { e => println(e.subject) }
+
+    Task.extract(emails).report
   }
 }
